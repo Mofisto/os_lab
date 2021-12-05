@@ -1,0 +1,145 @@
+     1                                     %include "boot.inc"
+     2                              <1> ;-------------	 loader和kernel   ----------
+     3                              <1> 
+     4                              <1> LOADER_BASE_ADDR equ 0x900 
+     5                              <1> LOADER_START_SECTOR equ 0x2
+     6                              <1> 
+     7                              <1> ;--------------   gdt描述符属性  -------------
+     8                              <1> ;------只是为了方便构建段描述符而定义的符号-------
+     9                              <1> DESC_G_4K   equ	  1_000_0000_0000_0000_0000_0000b ;G位为1时，段界限以4KB为单位
+    10                              <1> DESC_D_32   equ	   1_00_0000_0000_0000_0000_0000b ;D位为1，默认偏移地址或操作数大写
+    11                              <1> DESC_L	    equ	    0_0_0000_0000_0000_0000_0000b ;64位代码标记，此处标记为0便可。
+    12                              <1> DESC_AVL    equ	      0_0000_0000_0000_0000_0000b ;CPU不用此位，暂置为0  
+    13                              <1> DESC_LIMIT_CODE2  equ   1111_0000_0000_0000_0000b
+    14                              <1> DESC_LIMIT_DATA2  equ   DESC_LIMIT_CODE2
+    15                              <1> DESC_LIMIT_VIDEO2  equ   0000_000_0000_0000_0000b ;
+    16                              <1> DESC_P	    equ		        1_000_0000_0000_0000b ;P位为1，段存在
+    17                              <1> DESC_DPL_0  equ		   		 00_0_0000_0000_0000b ;DPL为0，段的特权级为 0
+    18                              <1> DESC_DPL_1  equ		         01_0_0000_0000_0000b ;DPL为1，段的特权级为 1
+    19                              <1> DESC_DPL_2  equ		         10_0_0000_0000_0000b ;DPL为2，段的特权级为 2
+    20                              <1> DESC_DPL_3  equ		         11_0_0000_0000_0000b ;DPL为3，段的特权级为 3
+    21                              <1> DESC_S_CODE equ		            1_0000_0000_0000b ;S 位为1，代码段或者数据段
+    22                              <1> DESC_S_DATA equ	                DESC_S_CODE
+    23                              <1> DESC_S_sys  equ		            0_0000_0000_0000b ;S 位为0，系统段
+    24                              <1> DESC_TYPE_CODE  equ	      		  1000_0000_0000b	;x=1,c=0,r=0,a=0 代码段是可执行的,非依从的,不可读的,已访问位a清0.  
+    25                              <1> DESC_TYPE_DATA  equ	              0010_0000_0000b	;x=0,e=0,w=1,a=0 数据段是不可执行的,向上扩展的,可读的，可写的,已访问位a清0.
+    26                              <1> 
+    27                              <1> 
+    28                              <1> ;----构建 代码段、数据段、显存段的的描述符高4个字节----
+    29                              <1> DESC_CODE_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_LIMIT_CODE2 + DESC_P + DESC_DPL_0 + DESC_S_CODE + DESC_TYPE_CODE + 0x00
+    30                              <1> DESC_DATA_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_LIMIT_DATA2 + DESC_P + DESC_DPL_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x00
+    31                              <1> DESC_VIDEO_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_LIMIT_VIDEO2 + DESC_P + DESC_DPL_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x0b
+    32                              <1> ;因为显存的起始地址是 0xb8000 ，所以显存段描述符的高4个字节最低8位，应该是 0x0b
+    33                              <1> 
+    34                              <1> ;--------------   选择子属性  ---------------
+    35                              <1> RPL0  equ   00b
+    36                              <1> RPL1  equ   01b
+    37                              <1> RPL2  equ   10b
+    38                              <1> RPL3  equ   11b
+    39                              <1> TI_GDT	 equ   000b  ;TI位指示使用 GDT 还是 LDT 
+    40                              <1> TI_LDT	 equ   100b  ;TI位
+     2                                     section loader vstart=LOADER_BASE_ADDR
+     3                                     LOADER_STACK_TOP equ LOADER_BASE_ADDR
+     4 00000000 E91702                     jmp loader_start					; 此处的物理地址是:
+     5                                  ;构建gdt及其内部的描述符
+     6 00000003 00000000                   GDT_BASE:   dd    0x00000000 
+     7 00000007 00000000                	            dd    0x00000000
+     8                                  
+     9 0000000B FFFF0000                   CODE_DESC:  dd    0x0000FFFF 
+    10 0000000F 0098CF00                	            dd    DESC_CODE_HIGH4
+    11                                  
+    12 00000013 FFFF0000                   DATA_STACK_DESC:  dd    0x0000FFFF
+    13 00000017 0092CF00                		               dd    DESC_DATA_HIGH4
+    14                                  
+    15 0000001B 07000080                   VIDEO_DESC: dd    0x80000007	       ;
+    16 0000001F 0B92C000                	            dd    DESC_VIDEO_HIGH4   ;
+    17                                                 ;这里解释下 描述符中的 G位如果为 1，
+    18                                                 ;Limit 是 4KB 为单位的，limit取值范围为：0x0000 ~0xFFFFF, 段的扩展范围是 4KB 到 4GB 
+    19                                                 ;0xB8000-0xBFFFF 区域是显存区域
+    20                                                 ;BFFFF-B8000=7FFFF
+    21                                                 ;这个区域的大小为： 7FFFF +1 = 8000 
+    22                                                 ;也就是 32KB，实际使用的段界限为 8000
+    23                                                 ;段的粒度为4KB,Limit 应该为 8
+    24                                                 ;这里的描述可能有误，暂时先按7算吧
+    25                                  
+    26                                  
+    27                                     GDT_SIZE   equ   $ - GDT_BASE    ;GDT的大小
+    28                                     GDT_LIMIT   equ   GDT_SIZE -	1  ;limit 的值为表的大小减 1
+    29 00000023 0000000000000000-          times 60 dq 0					 ; 此处预留60个描述符的slot
+    29 00000023 <rep 3Ch>          
+    30                                  
+    31                                     ;构建段选择子
+    32                                     SELECTOR_CODE equ (0x0001<<3) + TI_GDT + RPL0         ; 相当于(CODE_DESC - GDT_BASE)/8 + TI_GDT + RPL0
+    33                                     SELECTOR_DATA equ (0x0002<<3) + TI_GDT + RPL0	 ; 同上
+    34                                     SELECTOR_VIDEO equ (0x0003<<3) + TI_GDT + RPL0	 ; 同上 
+    35                                  
+    36                                     ;以下是定义gdt的指针，前2字节是gdt界限，后4字节是gdt起始地址
+    37                                  
+    38 00000203 1F00                       gdt_ptr  dw  GDT_LIMIT 
+    39 00000205 [03000000]              	         dd  GDT_BASE
+    40 00000209 32206C6F6164657220-        loadermsg db '2 loader in real.'
+    40 00000212 696E207265616C2E   
+    41                                  
+    42                                     loader_start:
+    43                                  
+    44                                  ;------------------------------------------------------------
+    45                                  ;INT 0x10    功能号:0x13    功能描述:打印字符串
+    46                                  ;------------------------------------------------------------
+    47                                  ;输入:
+    48                                  ;AH 子功能号=13H
+    49                                  ;BH = 页码
+    50                                  ;BL = 属性(若AL=00H或01H)
+    51                                  ;CX＝字符串长度
+    52                                  ;(DH、DL)＝坐标(行、列)
+    53                                  ;ES:BP＝字符串地址 
+    54                                  ;AL＝显示输出方式
+    55                                  ;   0——字符串中只含显示字符，其显示属性在BL中。显示后，光标位置不变
+    56                                  ;   1——字符串中只含显示字符，其显示属性在BL中。显示后，光标位置改变
+    57                                  ;   2——字符串中含显示字符和显示属性。显示后，光标位置不变
+    58                                  ;   3——字符串中含显示字符和显示属性。显示后，光标位置改变
+    59                                  ;无返回值
+    60 0000021A BC0009                     mov	 sp, LOADER_BASE_ADDR
+    61 0000021D BD[0902]                   mov	 bp, loadermsg           ; ES:BP = 字符串地址
+    62 00000220 B91100                     mov	 cx, 17			 ; CX = 字符串长度
+    63 00000223 B80113                     mov	 ax, 0x1301		 ; AH = 13,  AL = 01h
+    64 00000226 BB1F00                     mov	 bx, 0x001f		 ; 页号为0(BH = 0) 蓝底粉红字(BL = 1fh)
+    65 00000229 BA0018                     mov	 dx, 0x1800		 ;
+    66 0000022C CD10                       int	 0x10                    ; 10h 号中断
+    67                                  
+    68                                  ;----------------------------------------   准备进入保护模式   ------------------------------------------
+    69                                  									;1 打开A20
+    70                                  									;2 加载gdt
+    71                                  									;3 将cr0的pe位置1
+    72                                  
+    73                                  
+    74                                     ;-----------------  打开A20  ----------------
+    75 0000022E E492                       in al,0x92
+    76 00000230 0C02                       or al,0000_0010B
+    77 00000232 E692                       out 0x92,al
+    78                                  
+    79                                     ;-----------------  加载GDT  ----------------
+    80 00000234 0F0116[0302]               lgdt [gdt_ptr]
+    81                                  
+    82                                  
+    83                                     ;-----------------  cr0第0位置1  ----------------
+    84 00000239 0F20C0                     mov eax, cr0
+    85 0000023C 6683C801                   or eax, 0x00000001
+    86 00000240 0F22C0                     mov cr0, eax
+    87                                  
+    88                                     ;jmp dword SELECTOR_CODE:p_mode_start	     ; 刷新流水线，避免分支预测的影响,这种cpu优化策略，最怕jmp跳转，
+    89 00000243 EA[4802]0800               jmp  SELECTOR_CODE:p_mode_start	     ; 刷新流水线，避免分支预测的影响,这种cpu优化策略，最怕jmp跳转，
+    90                                  					     ; 这将导致之前做的预测失效，从而起到了刷新的作用。
+    91                                  
+    92                                  [bits 32]
+    93                                  p_mode_start:
+    94 00000248 66B81000                   mov ax, SELECTOR_DATA
+    95 0000024C 8ED8                       mov ds, ax
+    96 0000024E 8EC0                       mov es, ax
+    97 00000250 8ED0                       mov ss, ax
+    98 00000252 BC00090000                 mov esp,LOADER_STACK_TOP
+    99 00000257 66B81800                   mov ax, SELECTOR_VIDEO
+   100 0000025B 8EE8                       mov gs, ax
+   101                                  
+   102 0000025D 65C605A000000050           mov byte [gs:160], 'P'
+   103                                  
+   104 00000265 EBFE                       jmp $

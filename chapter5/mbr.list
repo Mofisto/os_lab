@@ -1,0 +1,187 @@
+     1                                  ;主引导程序 
+     2                                  ;------------------------------------------------------------
+     3                                  %include "boot.inc"
+     4                              <1> ;-------------	 loader和kernel   ----------
+     5                              <1> 
+     6                              <1> LOADER_BASE_ADDR equ 0x900
+     7                              <1> LOADER_STACK_TOP equ LOADER_BASE_ADDR 
+     8                              <1> LOADER_START_SECTOR equ 0x2
+     9                              <1> 
+    10                              <1> 
+    11                              <1> 
+    12                              <1> KERNEL_BIN_BASE_ADDR equ 0x70000
+    13                              <1> KERNEL_START_SECTOR equ 0x9
+    14                              <1> KERNEL_ENTRY_POINT equ 0xc0001500
+    15                              <1> 
+    16                              <1> ;-------------   页表配置   ----------------
+    17                              <1> PAGE_DIR_TABLE_POS equ 0x100000
+    18                              <1> 
+    19                              <1> ;--------------   gdt描述符属性  -------------
+    20                              <1> ;------只是为了方便构建段描述符而定义的符号-------
+    21                              <1> DESC_G_4K   equ	  1_000_0000_0000_0000_0000_0000b ;G位为1时，段界限以4KB为单位
+    22                              <1> DESC_D_32   equ	   1_00_0000_0000_0000_0000_0000b ;D位为1，默认偏移地址或操作数大写
+    23                              <1> DESC_L	    equ	    0_0_0000_0000_0000_0000_0000b ;64位代码标记，此处标记为0便可。
+    24                              <1> DESC_AVL    equ	      0_0000_0000_0000_0000_0000b ;CPU不用此位，暂置为0  
+    25                              <1> DESC_LIMIT_CODE2  equ   1111_0000_0000_0000_0000b
+    26                              <1> DESC_LIMIT_DATA2  equ   DESC_LIMIT_CODE2
+    27                              <1> DESC_LIMIT_VIDEO2  equ   0000_000_0000_0000_0000b ;
+    28                              <1> DESC_P	    equ		        1_000_0000_0000_0000b ;P位为1，段存在
+    29                              <1> DESC_DPL_0  equ		   		 00_0_0000_0000_0000b ;DPL为0，段的特权级为 0
+    30                              <1> DESC_DPL_1  equ		         01_0_0000_0000_0000b ;DPL为1，段的特权级为 1
+    31                              <1> DESC_DPL_2  equ		         10_0_0000_0000_0000b ;DPL为2，段的特权级为 2
+    32                              <1> DESC_DPL_3  equ		         11_0_0000_0000_0000b ;DPL为3，段的特权级为 3
+    33                              <1> DESC_S_CODE equ		            1_0000_0000_0000b ;S 位为1，代码段或者数据段
+    34                              <1> DESC_S_DATA equ	                DESC_S_CODE
+    35                              <1> DESC_S_sys  equ		            0_0000_0000_0000b ;S 位为0，系统段
+    36                              <1> DESC_TYPE_CODE  equ	      		  1000_0000_0000b	;x=1,c=0,r=0,a=0 代码段是可执行的,非依从的,不可读的,已访问位a清0.  
+    37                              <1> DESC_TYPE_DATA  equ	              0010_0000_0000b	;x=0,e=0,w=1,a=0 数据段是不可执行的,向上扩展的,可读的，可写的,已访问位a清0.
+    38                              <1> 
+    39                              <1> 
+    40                              <1> ;----构建 代码段、数据段、显存段的的描述符高4个字节----
+    41                              <1> DESC_CODE_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_LIMIT_CODE2 + DESC_P + DESC_DPL_0 + DESC_S_CODE + DESC_TYPE_CODE + 0x00
+    42                              <1> DESC_DATA_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_LIMIT_DATA2 + DESC_P + DESC_DPL_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x00
+    43                              <1> DESC_VIDEO_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + DESC_L + DESC_AVL + DESC_LIMIT_VIDEO2 + DESC_P + DESC_DPL_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x0b
+    44                              <1> ;因为显存的起始地址是 0xb8000 ，所以显存段描述符的高4个字节最低8位，应该是 0x0b
+    45                              <1> 
+    46                              <1> ;--------------   选择子属性  ---------------
+    47                              <1> RPL0  equ   00b
+    48                              <1> RPL1  equ   01b
+    49                              <1> RPL2  equ   10b
+    50                              <1> RPL3  equ   11b
+    51                              <1> TI_GDT	 equ   000b  ;TI位指示使用 GDT 还是 LDT 
+    52                              <1> TI_LDT	 equ   100b  ;TI位
+    53                              <1> 
+    54                              <1> 
+    55                              <1> ;----------------   页表相关属性    --------------
+    56                              <1> PG_P  equ       1b
+    57                              <1> PG_RW_R	 equ   00b 
+    58                              <1> PG_RW_W	 equ   10b 
+    59                              <1> PG_US_S	 equ  000b 
+    60                              <1> PG_US_U	 equ  100b 
+    61                              <1> 
+    62                              <1> 
+    63                              <1> ;-------------  program type 定义   --------------
+    64                              <1> PT_NULL equ 0
+     4                                  SECTION MBR vstart=0x7c00         
+     5 00000000 8CC8                       mov ax,cs      
+     6 00000002 8ED8                       mov ds,ax
+     7 00000004 8EC0                       mov es,ax
+     8 00000006 8ED0                       mov ss,ax
+     9 00000008 8EE0                       mov fs,ax
+    10 0000000A BC007C                     mov sp,0x7c00
+    11 0000000D B800B8                     mov ax,0xb800
+    12 00000010 8EE8                       mov gs,ax
+    13                                  
+    14                                  ; 清屏
+    15                                  ;利用0x06号功能，上卷全部行，则可清屏。
+    16                                  ; -----------------------------------------------------------
+    17                                  ;INT 0x10   功能号:0x06	   功能描述:上卷窗口
+    18                                  ;------------------------------------------------------
+    19                                  ;输入：
+    20                                  ;AH 功能号= 0x06
+    21                                  ;AL = 上卷的行数(如果为0,表示全部)
+    22                                  ;BH = 上卷行属性
+    23                                  ;(CL,CH) = 窗口左上角的(X,Y)位置
+    24                                  ;(DL,DH) = 窗口右下角的(X,Y)位置
+    25                                  ;无返回值：
+    26 00000012 B80006                     mov     ax, 0600h
+    27 00000015 BB0007                     mov     bx, 0700h
+    28 00000018 B90000                     mov     cx, 0                   ; 左上角: (0, 0)
+    29 0000001B BA4F18                     mov     dx, 184fh		   ; 右下角: (80,25),
+    30                                  				   ; 因为VGA文本模式中，一行只能容纳80个字符,共25行。
+    31                                  				   ; 下标从0开始，所以0x18=24,0x4f=79
+    32 0000001E CD10                       int     10h                     ; int 10h
+    33                                  
+    34                                     ; 输出字符串:MBR
+    35 00000020 65C606000031               mov byte [gs:0x00],'1'
+    36 00000026 65C6060100A4               mov byte [gs:0x01],0xA4
+    37                                  
+    38 0000002C 65C606020020               mov byte [gs:0x02],' '
+    39 00000032 65C6060300A4               mov byte [gs:0x03],0xA4
+    40                                  
+    41 00000038 65C60604004D               mov byte [gs:0x04],'M'
+    42 0000003E 65C6060500A4               mov byte [gs:0x05],0xA4	   ;A表示绿色背景闪烁，4表示前景色为红色
+    43                                  
+    44 00000044 65C606060042               mov byte [gs:0x06],'B'
+    45 0000004A 65C6060700A4               mov byte [gs:0x07],0xA4
+    46                                  
+    47 00000050 65C606080052               mov byte [gs:0x08],'R'
+    48 00000056 65C6060900A4               mov byte [gs:0x09],0xA4
+    49                                  	 
+    50 0000005C 66B802000000               mov eax,LOADER_START_SECTOR	 ; 起始扇区lba地址
+    51 00000062 BB0009                     mov bx,LOADER_BASE_ADDR       ; 写入的地址
+    52 00000065 B90400                     mov cx,4			 ; 待读入的扇区数
+    53 00000068 E80300                     call rd_disk_m_16		 ; 以下读取程序的起始部分（一个扇区）
+    54                                    
+    55 0000006B E9(0009)                   jmp LOADER_BASE_ADDR
+    56                                         
+    57                                  ;-------------------------------------------------------------------------------
+    58                                  ;功能:读取硬盘n个扇区
+    59                                  rd_disk_m_16:	   
+    60                                  ;-------------------------------------------------------------------------------
+    61                                  				       ; eax=LBA扇区号
+    62                                  				       ; ebx=将数据写入的内存地址
+    63                                  				       ; ecx=读入的扇区数
+    64 0000006E 6689C6                        mov esi,eax	  ;备份eax
+    65 00000071 89CF                          mov di,cx		  ;备份cx
+    66                                  ;读写硬盘:
+    67                                  ;第1步：设置要读取的扇区数
+    68 00000073 BAF201                        mov dx,0x1f2
+    69 00000076 88C8                          mov al,cl
+    70 00000078 EE                            out dx,al            ;读取的扇区数
+    71                                  
+    72 00000079 6689F0                        mov eax,esi	   ;恢复ax
+    73                                  
+    74                                  ;第2步：将LBA地址存入0x1f3 ~ 0x1f6
+    75                                  
+    76                                        ;LBA地址7~0位写入端口0x1f3
+    77 0000007C BAF301                        mov dx,0x1f3                       
+    78 0000007F EE                            out dx,al                          
+    79                                  
+    80                                        ;LBA地址15~8位写入端口0x1f4
+    81 00000080 B108                          mov cl,8
+    82 00000082 66D3E8                        shr eax,cl
+    83 00000085 BAF401                        mov dx,0x1f4
+    84 00000088 EE                            out dx,al
+    85                                  
+    86                                        ;LBA地址23~16位写入端口0x1f5
+    87 00000089 66D3E8                        shr eax,cl
+    88 0000008C BAF501                        mov dx,0x1f5
+    89 0000008F EE                            out dx,al
+    90                                  
+    91 00000090 66D3E8                        shr eax,cl
+    92 00000093 240F                          and al,0x0f	   ;lba第24~27位
+    93 00000095 0CE0                          or al,0xe0	   ; 设置7～4位为1110,表示lba模式
+    94 00000097 BAF601                        mov dx,0x1f6
+    95 0000009A EE                            out dx,al
+    96                                  
+    97                                  ;第3步：向0x1f7端口写入读命令，0x20 
+    98 0000009B BAF701                        mov dx,0x1f7
+    99 0000009E B020                          mov al,0x20                        
+   100 000000A0 EE                            out dx,al
+   101                                  
+   102                                  ;第4步：检测硬盘状态
+   103                                    .not_ready:
+   104                                        ;同一端口，写时表示写入命令字，读时表示读入硬盘状态
+   105 000000A1 90                            nop
+   106 000000A2 EC                            in al,dx
+   107 000000A3 2488                          and al,0x88	   ;第4位为1表示硬盘控制器已准备好数据传输，第7位为1表示硬盘忙
+   108 000000A5 3C08                          cmp al,0x08
+   109 000000A7 75F8                          jnz .not_ready	   ;若未准备好，继续等。
+   110                                  
+   111                                  ;第5步：从0x1f0端口读数据
+   112 000000A9 89F8                          mov ax, di
+   113 000000AB BA0001                        mov dx, 256
+   114 000000AE F7E2                          mul dx
+   115 000000B0 89C1                          mov cx, ax	   ; di为要读取的扇区数，一个扇区有512字节，每次读入一个字，
+   116                                  			   ; 共需di*512/2次，所以di*256
+   117 000000B2 BAF001                        mov dx, 0x1f0
+   118                                    .go_on_read:
+   119 000000B5 ED                            in ax,dx
+   120 000000B6 8907                          mov [bx],ax
+   121 000000B8 83C302                        add bx,2		  
+   122 000000BB E2F8                          loop .go_on_read
+   123 000000BD C3                            ret
+   124                                  
+   125 000000BE 00<rep 140h>               times 510-($-$$) db 0
+   126 000001FE 55AA                       db 0x55,0xaa
