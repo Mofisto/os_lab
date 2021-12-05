@@ -63,16 +63,16 @@
      2                                     section loader vstart=LOADER_BASE_ADDR
      3                                  ;构建gdt及其内部的描述符
      4 00000000 00000000                   GDT_BASE:   dd    0x00000000 
-     5 00000004 00000000                	            dd    0x00000000
+     5 00000004 00000000                	           dd    0x00000000
      6                                  
      7 00000008 FFFF0000                   CODE_DESC:  dd    0x0000FFFF 
-     8 0000000C 0098CF00                	            dd    DESC_CODE_HIGH4
+     8 0000000C 0098CF00                	           dd    DESC_CODE_HIGH4
      9                                  
     10 00000010 FFFF0000                   DATA_STACK_DESC:  dd    0x0000FFFF
-    11 00000014 0092CF00                		               dd    DESC_DATA_HIGH4
+    11 00000014 0092CF00                		             dd    DESC_DATA_HIGH4
     12                                  
     13 00000018 07000080                   VIDEO_DESC: dd    0x80000007	       ; limit=(0xbffff-0xb8000)/4k=0x7
-    14 0000001C 0B92C000                	            dd    DESC_VIDEO_HIGH4  ; 此时dpl为0
+    14 0000001C 0B92C000                	           dd    DESC_VIDEO_HIGH4  ; 此时dpl为0
     15                                  
     16                                     GDT_SIZE   equ   $ - GDT_BASE
     17                                     GDT_LIMIT   equ   GDT_SIZE -	1 
@@ -90,13 +90,13 @@
     28                                  
     29                                     ;以下是定义gdt的指针，前2字节是gdt界限，后4字节是gdt起始地址
     30 00000204 1F00                       gdt_ptr  dw  GDT_LIMIT 
-    31 00000206 [00000000]              	         dd  GDT_BASE
+    31 00000206 [00000000]              	        dd  GDT_BASE
     32                                  
     33                                     ;人工对齐:total_mem_bytes4字节+gdt_ptr6字节+ards_buf244字节+ards_nr2,共256字节
     34 0000020A 00<rep F4h>                ards_buf times 244 db 0
     35 000002FE 0000                       ards_nr dw 0		      ;用于记录ards结构体数量
     36                                  
-    37                                     loader_start:
+    37                                    loader_start:
     38                                     
     39                                  ;-------  int 15h eax = 0000E820h ,edx = 534D4150h ('SMAP') 获取内存布局  -------
     40                                  

@@ -2,16 +2,16 @@
    section loader vstart=LOADER_BASE_ADDR
 ;构建gdt及其内部的描述符
    GDT_BASE:   dd    0x00000000 
-	            dd    0x00000000
+	           dd    0x00000000
 
    CODE_DESC:  dd    0x0000FFFF 
-	            dd    DESC_CODE_HIGH4
+	           dd    DESC_CODE_HIGH4
 
    DATA_STACK_DESC:  dd    0x0000FFFF
-		               dd    DESC_DATA_HIGH4
+		             dd    DESC_DATA_HIGH4
 
    VIDEO_DESC: dd    0x80000007	       ; limit=(0xbffff-0xb8000)/4k=0x7
-	            dd    DESC_VIDEO_HIGH4  ; 此时dpl为0
+	           dd    DESC_VIDEO_HIGH4  ; 此时dpl为0
 
    GDT_SIZE   equ   $ - GDT_BASE
    GDT_LIMIT   equ   GDT_SIZE -	1 
@@ -28,13 +28,13 @@
 
    ;以下是定义gdt的指针，前2字节是gdt界限，后4字节是gdt起始地址
    gdt_ptr  dw  GDT_LIMIT 
-	         dd  GDT_BASE
+	        dd  GDT_BASE
 
    ;人工对齐:total_mem_bytes4字节+gdt_ptr6字节+ards_buf244字节+ards_nr2,共256字节
    ards_buf times 244 db 0
    ards_nr dw 0		      ;用于记录ards结构体数量
 
-   loader_start:
+  loader_start:
    
 ;-------  int 15h eax = 0000E820h ,edx = 534D4150h ('SMAP') 获取内存布局  -------
 
