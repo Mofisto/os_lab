@@ -1,17 +1,18 @@
    %include "boot.inc"
    section loader vstart=LOADER_BASE_ADDR
+   jmp loader_start					; 此处的物理地址是: 0x900
 ;构建gdt及其内部的描述符
    GDT_BASE:   dd    0x00000000 
-	           dd    0x00000000
+	            dd    0x00000000
 
    CODE_DESC:  dd    0x0000FFFF 
-	           dd    DESC_CODE_HIGH4
+	            dd    DESC_CODE_HIGH4
 
    DATA_STACK_DESC:  dd    0x0000FFFF
-		             dd    DESC_DATA_HIGH4
+		               dd    DESC_DATA_HIGH4
 
    VIDEO_DESC: dd    0x80000007	       ; limit=(0xbffff-0xb8000)/4k=0x7
-	           dd    DESC_VIDEO_HIGH4  ; 此时dpl为0
+	            dd    DESC_VIDEO_HIGH4  ; 此时dpl为0
 
    GDT_SIZE   equ   $ - GDT_BASE
    GDT_LIMIT   equ   GDT_SIZE -	1 
@@ -28,7 +29,7 @@
 
    ;以下是定义gdt的指针，前2字节是gdt界限，后4字节是gdt起始地址
    gdt_ptr  dw  GDT_LIMIT 
-	        dd  GDT_BASE
+	         dd  GDT_BASE
 
    ;人工对齐:total_mem_bytes4字节+gdt_ptr6字节+ards_buf244字节+ards_nr2,共256字节
    ards_buf times 244 db 0
@@ -147,7 +148,8 @@ p_mode_start:
 ; -------------------------   加载kernel  ----------------------
    mov eax, KERNEL_START_SECTOR        ; kernel.bin所在的扇区号
    mov ebx, KERNEL_BIN_BASE_ADDR       ; 从磁盘读出后，写入到ebx指定的地址
-   mov ecx, 200			       ; 读入的扇区数
+   mov ecx, 1			       ; 读入的扇区数
+   ;目前只需要读取一个扇区就好
 
    call rd_disk_m_32
 
@@ -172,12 +174,12 @@ p_mode_start:
    mov cr3, eax
 
    ; 打开cr0的pg位(第31位)
-   mov eax, cr0
-   or eax, 0x80000000
-   mov cr0, eax
+   ;mov eax, cr0
+   ;or eax, 0x80000000
+   ;mov cr0, eax
 
    ;在开启分页后,用gdt新的地址重新加载
-   lgdt [gdt_ptr]             ; 重新加载
+   ;lgdt [gdt_ptr]             ; 重新加载
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;  此时不刷新流水线也没问题  ;;;;;;;;;;;;;;;;;;;;;;;;
 ;由于一直处在32位下,原则上不需要强制刷新,经过实际测试没有以下这两句也没问题.
@@ -185,9 +187,11 @@ p_mode_start:
    jmp SELECTOR_CODE:enter_kernel	  ;强制刷新流水线,更新gdt
 enter_kernel:    
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   call kernel_init
+   ;call kernel_init
    mov esp, 0xc009f000
-   jmp KERNEL_ENTRY_POINT                 ; 用地址0x1500访问测试，结果ok
+   ;jmp KERNEL_ENTRY_POINT                 ; 用地址0x1500访问测试，结果ok
+   jmp KERNEL_BIN_BASE_ADDR                 ; 书中的ELF 处理太麻烦了，增加了大量的篇幅描述这些无用的信息
+   ;按照当前配置，位于内存地址 0xd49
 
 
 ;-----------------   将kernel.bin中的segment拷贝到编译的地址   -----------
