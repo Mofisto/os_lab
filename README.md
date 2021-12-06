@@ -2,4 +2,4 @@
 
 在文件夹下执行`make`可制作内核镜像，执行`make run`使用文件夹下的 bochsrc 配置启动 Bochs 
 
-makefiel 写的比较丑，主要为了能运行就好。
+makefile 写的比较丑，主要为了能运行就好。
