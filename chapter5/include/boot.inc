@@ -1,12 +1,12 @@
 ;-------------	 loader和kernel   ----------
 
-LOADER_BASE_ADDR equ 0x900
+LOADER_BASE_ADDR equ 0x7e00 ;我换成了我熟悉的地址 0x7coo + 0x200 = 0x7e00
 LOADER_STACK_TOP equ LOADER_BASE_ADDR 
 LOADER_START_SECTOR equ 0x2
 
 
 
-KERNEL_BIN_BASE_ADDR equ 0x70000
+KERNEL_BIN_BASE_ADDR equ 0x8400    ;0x7e00 + 0x600 = 0x8400 
 KERNEL_START_SECTOR equ 0x5  ;写入到了5扇区
 ;KERNEL_ENTRY_POINT equ 0xc0001500
 

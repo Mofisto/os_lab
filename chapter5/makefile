@@ -12,7 +12,7 @@ endif
 	nasm -f bin -I include -o loader.bin loader.s
 	nasm -f bin -I include -o mbr.bin mbr.s
 	gcc -c -m32 -o main.o main.c
-	ld main.o -Ttext 0x0  -m elf_i386 -e main -o main
+	ld main.o -Ttext 0x8400  -m elf_i386 -e main -o main
 	objcopy -I elf32-i386 -S -R ".eh_frame" -R ".comment" -O binary main kernel.bin
 	#ld main.o -Ttext 0xc0001500 -e main -o kernel.bin
 
