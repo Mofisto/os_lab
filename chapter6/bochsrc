@@ -1,0 +1,24 @@
+megs: 32  #内存 32 MB
+
+#BIOS 和 显示BIOS 
+romimage: file=/usr/local/share/bochs/BIOS-bochs-latest    
+vgaromimage: file=/usr/local/share/bochs/VGABIOS-lgpl-latest
+
+#软盘
+#floppya: 1_44=a.img, status=inserted，write_protected=0
+
+#启动盘
+#boot: floppy
+boot:disk
+
+#硬盘
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14 #暂时不理解这个配置。
+ata0-master: type=disk, path="hd10.img", mode=flat
+
+#日志
+log: bochsout.txt 
+
+#关闭鼠标，开启键盘
+mouse: enabled=0    
+keyboard:keymap=/usr/local/share/bochs/keymaps/x11-pc-us.map
+

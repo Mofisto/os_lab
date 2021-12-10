@@ -114,7 +114,7 @@ enter_kernel:
    ;call kernel_init
    mov esp, 0x7e00 ;暂时把 ESP 设置为 0x7e00
    ;jmp KERNEL_ENTRY_POINT                 ; 用地址0x1500访问测试，结果ok
-   mov ebp, WHILE   ;考虑意外 ret 的情况，这个设计很丑，就这用吧
+   mov ebp, WHILE   ;考虑意外 ret 的情况，这个设计很丑，就这样用吧
    jmp KERNEL_BIN_BASE_ADDR                 ; 书中的ELF 处理太麻烦了，增加了大量的篇幅描述这些无用的信息
    ;按照当前配置，位于内存地址 0x8199
    ;由于这里的main.c 会ret ,所以提前 push 
