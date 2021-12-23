@@ -1,5 +1,5 @@
 section .data
-   msg: db "Hello, World!",0xa ; Declare a label "msg" which has
+   msg: db "Hello,World!",0xa ; Declare a label "msg" which has
                                ; our string we want to print.
                                ; for reference: 0xa = "\n"
 

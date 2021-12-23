@@ -13,4 +13,4 @@ endif
 	dd if=mbr.bin of=hd10.img bs=512 count=1 conv=notrunc
 	dd if=loader.bin of=hd10.img bs=512 count=1 seek=2 conv=notrunc
 run:
-	bochs -f bochsrc
+	bochs -q -f bochsrc

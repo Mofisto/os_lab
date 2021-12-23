@@ -20,4 +20,4 @@ endif
 	dd if=loader.bin of=hd10.img bs=512 count=3 seek=2 conv=notrunc
 	dd if=kernel.bin of=hd10.img bs=512 count=200 seek=5 conv=notrunc
 run:
-	bochs -f bochsrc
+	bochs -q -f bochsrc

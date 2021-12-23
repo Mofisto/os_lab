@@ -29,4 +29,4 @@ endif
 clean:
 	rm -rf  build/*
 run:
-	bochs -f bochsrc
+	bochs -q -f bochsrc

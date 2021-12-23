@@ -1,4 +1,4 @@
-megs: 32  #内存 32 MB
+megs: 16  #内存 16 MB
 
 #BIOS 和 显示BIOS 
 romimage: file=/usr/local/share/bochs/BIOS-bochs-latest    

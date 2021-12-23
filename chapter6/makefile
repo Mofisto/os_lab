@@ -23,4 +23,4 @@ asm_call_c:
 	nasm -f elf32 c_with_s_s.s -o c_with_s_s.o
 	ld -m elf_i386 c_with_s_c.o c_with_s_s.o -o c_with_s
 run:
-	bochs -f bochsrc
+	bochs -q -f bochsrc
